@@ -10,7 +10,6 @@
 *.rej
 *~
 cur/
-output/
 tmp/
 __pycache__/
 __pypackages__
@@ -20,6 +19,3 @@ venv/
 .venv/
 env/
 .env/
-xlumia*.e*
-lumiaGUI.epj
-ListOfAllValidPIDs.txt
