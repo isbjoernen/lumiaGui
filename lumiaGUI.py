@@ -33,15 +33,7 @@ scriptName=sys.argv[0]
 if('.ipynb' in scriptName[-6:]):
     USE_TKINTER=False
 # For testing of ipywidgets uncomment the next line (even if not a notebook)
-# USE_TKINTER=False
-if(USE_TKINTER):
-    import guiElementsTk as ge
-    import tkinter as tk    
-    import customtkinter as ctk
-else:
-    import guiElements_ipyWdg as ge
-    from IPython.display import display, HTML,  clear_output
-from ipywidgets import widgets
+
 import boringStuff as bs
 
 
@@ -106,7 +98,7 @@ def prepareCallToLumiaGUI(ymlFile,  scriptDirectory, iVerbosityLv='INFO'):
 
     root=None
     if(USE_TKINTER):
-        root = LumiaTkGui() # is the ctk.CTk() root window
+        root = ge.LumiaGui() # is the ctk.CTk() root window
         lumiaGuiAppInst=lumiaGuiApp(root)  # the main GUI application (class)
         lumiaGuiAppInst.sLogCfgPath = sLogCfgPath  # TODO: check if this is obsolete now
         lumiaGuiAppInst.ymlFile = ymlFile  # the initial Lumia configuration file from which we start
@@ -255,7 +247,7 @@ class lumiaGuiApp:
         # TODO: uncomment the next line to stop using a canned list DiscoveredObservations-short.csv for testing (saves a lot fo time in the debugger)
         #(dobjLst, selectedDobjLst, dfObsDataInfo, self.fDiscoveredObservations, self.badPidsLst)=discoverObservationsOnCarbonPortal(self.tracer,   
         #                    pdTimeStart, pdTimeEnd, timeStep,  self.ymlContents,  sDataType=None, printProgress=True,    self.iVerbosityLv='INFO')
-        self.fDiscoveredObservations='DiscoveredObservations-short.csv'
+        self.fDiscoveredObservations='DiscoveredObservations.csv' # 'DiscoveredObservations-short.csv'
         self.badPidsLst=[]
         
         if (len(self.badPidsLst) > 0):
@@ -347,7 +339,7 @@ class lumiaGuiApp:
 
 
     # ====================================================================
-    # EventHandler for widgets of second GUI page  -- part of lumiaGuiApp (root window)
+    # EventHandler and helper functions for widgets of the second GUI page  -- part of lumiaGuiApp (root window)
     # ====================================================================
     def guiPg2createRowOfObsWidgets(self, scrollableFrame4Widgets, widgetsLst, num, rowidx, row, guiRow, 
                                                 sSamplingHeights, activeTextColor, 
@@ -673,15 +665,16 @@ class lumiaGuiApp:
         
 
 
-
     # ====================================================================
     # body & brain of first GUI page  -- part of lumiaGuiApp (toplevel window)
     # ====================================================================
         
     def guiPage1AsTopLv(self, iVerbosityLv='INFO'):  # of lumiaGuiApp
         if(self.guiPg1TpLv is None):
-            self.guiPg1TpLv = tk.Toplevel(self.root,  bg="cadet blue")
-        self.root.iconify()
+            # self.guiPg1TpLv = tk.Toplevel(self.root,  bg="cadet blue")
+            self.guiPg1TpLv = ge.guiToplevel(self,  bg="cadet blue")
+        if(USE_TKINTER):
+            self.root.iconify()
 
         # Plan the layout of the GUI - get screen dimensions, choose a reasonable font size for it, xPadding, etc.
         nCols=5 # sum of labels and entry fields per row
@@ -1141,6 +1134,7 @@ class lumiaGuiApp:
         # EventHandler for widgets of second GUI page  -- part of lumiaGuiApp (root window)
         # ====================================================================
 
+        
         def applyFilterRules():
             bICOSonly=self.ymlContents['observations']['filters']['ICOSonly']
             self.getFilters()
@@ -1651,25 +1645,6 @@ class lumiaGuiApp:
    
    
 
-# LumiaGui Class =============================================================
-class LumiaTkGui(ctk.CTk):
-    def __init__(self): #, root, *args, **kwargs):
-        ctk.set_appearance_mode("System")  
-        ctk.set_default_color_theme(scriptDirectory+"/doc/lumia-dark-theme.json") 
-        ctk.CTk.__init__(self)
-        # self.geometry(f"{maxW+1}x{maxH+1}")   is set later when we know about the screen dimensions
-        self.title('LUMIA - the Lund University Modular Inversion Algorithm') 
-        self.grid_rowconfigure(0, weight=1)
-        self.columnconfigure(0, weight=1)
-        self.activeTextColor='gray10'
-        self.inactiveTextColor='gray50'
-
-class LumiaTkFrame(tk.Frame):
-    def __init__(self, parent, *args, **kwargs):
-        tk.Frame.__init__(self, parent, *args, **kwargs)
-        self.parent = parent
-
-
 
 
 def  readMyYamlFile(ymlFile):
@@ -1711,6 +1686,8 @@ p.add_argument('--start', dest='start', default=None, help="Start of the simulat
 p.add_argument('--end', dest='end', default=None, help="End of the simulation as in \'2018-12-31 23:59:59\'. Overwrites the value in the rc-file")
 p.add_argument('--rcf', dest='rcf', default=None, help="Same as the --ymf option. Deprecated. For backward compatibility only.")   
 p.add_argument('--ymf', dest='ymf', default=None,  help='yaml configuration file where the user plans his or her Lumia run: parameters, input files etc.')   
+p.add_argument('--serial', '-s', action='store_true', default=False, help="Run on a single CPU")
+p.add_argument('--noTkinter', '-n', action='store_true', default=False, help="Do not use tkinter (=> use ipywidgets)")
 p.add_argument('--verbosity', '-v', dest='verbosity', default='INFO')
 args, unknown = p.parse_known_args(sys.argv[1:])
 
@@ -1718,6 +1695,17 @@ args, unknown = p.parse_known_args(sys.argv[1:])
 logger.remove()
 logger.add(sys.stderr, level=args.verbosity)
 
+if(args.noTkinter):
+    USE_TKINTER=False
+if(USE_TKINTER):
+    import guiElementsTk as ge
+    import tkinter as tk    
+    import customtkinter as ctk
+else:
+    import guiElements_ipyWdg as ge
+    from IPython.display import display, HTML,  clear_output
+    import ipywidgets as widgets
+    from ipywidgets import  Dropdown, Output, Button, FileUpload, SelectMultiple, Text, HBox, IntProgress
 if(args.rcf is None):
     if(args.ymf is None):
         logger.error("LumiaGUI: Fatal error: no user configuration (yaml) file provided.")
