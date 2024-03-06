@@ -23,6 +23,47 @@ class guiToplevel:
         self.activeTextColor='gray10'
         self.inactiveTextColor='gray50'
 
+class pseudoRootFrame:
+    def __init__(self):
+        self.bg='cadet blue'
+        self.title='rootFrame'
+        self.activeTextColor='gray10'
+        self.inactiveTextColor='gray50'
+
+class GridCTkCheckBox(wdg.Checkbox):
+    def __init__(self, root, myGridID,  variable,  *args, **kwargs):
+        #ctk.CTkCheckBox.__init__(self, root, *args, **kwargs) 
+        self.widgetGridID= myGridID
+        wdg.Checkbox.__init__(self, 
+            value=variable,
+            description='',
+            disabled=False,
+            indent=False
+        )
+
+class GridCTkLabel(wdg.Text):
+    def __init__(self, root, myGridID, text,  *args, **kwargs):
+        self.widgetGridID= myGridID
+        sWdth='50%%'            
+        layout = widgets.Layout(width=sWdth)
+        wdg.Text.__init__(self, layout = layout, description=text,  value=text)
+
+
+class GridCTkOptionMenu(wdg.Dropdown):
+    def __init__(self, root, myGridID, values, *args, **kwargs):
+        self.widgetGridID= myGridID
+        #ctk.CTkOptionMenu.__init__(self, root, *args, **kwargs)
+        wdg.Dropdown.__init__(self, options=values, description='', disabled=False) # value=0, 
+
+
+
+def getVarValue(tkinterVar):
+    return tkinterVar
+    
+    
+def getWidgetValue(widget):
+    return(widget.value)
+
 
 def guiBooleanVar(value):
     if(value):
@@ -50,22 +91,26 @@ def guiAskOkCancel(title="Untitled",  message="Is it ok?"):
     return(True)
 
 
-def guiButton(master, text='Ok',  command=None,  fontName="Georgia",  fontSize=12, ):
+def guiButton(master, text='Ok',  command=None,  fontName="Georgia",  fontSize=12, width=200):
+    sWdth=f'{width}px'            
+    layout = widgets.Layout(width=sWdth)
     return(wdg.Button(
     description=text,
     disabled=False,
     button_style='', # 'success', 'info', 'warning', 'danger' or ''
     tooltip='',
-    icon='check' # (FontAwesome names without the `fa-` prefix)
+    layout = layout, 
     )
     )
+    #icon='check' # (FontAwesome names without the `fa-` prefix)
     #return(ctk.CTkButton(master=master, command=command, font=(fontName, fontSize), text=text)
 
 
 def   guiCheckBox(self,disabled=False, text='', fontName="Georgia", command=None, fontSize=12, variable=None, 
                             text_color='gray5',  text_color_disabled='gray70', onvalue=True, offvalue=False):
+    # variable holds the initial state whether the CheckBox is selected (True) or not (False)
     return(wdg.Checkbox(
-        value=offvalue,
+        value=variable,
         description=text,
         disabled=disabled,
         indent=False
@@ -206,6 +251,10 @@ def guiRadioButton(options=[] , description='',  text='', preselected=None):
     ))
 
 
+def guiSetCheckBox(myWidget, bSelected=False):
+        myWidget.value=bSelected
+        myWidget
+
 
 def guiTextBox(frame, text='',  description='', width='18%',  height='20%',  fontName="Georgia",  fontSize=12, text_color="black"):
     box=wdg.Textarea(
@@ -251,7 +300,9 @@ def guiSetWidgetWidth(widget,  width=200):
     myLayout = {"width":sWdth}
     widget.layout = myLayout
     
-def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='',  myDescription="Continue after user selection",  myDescription2="Cancel", width=240):
+    
+def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='',  
+            myDescription="Continue after user selection",  myDescription2="Cancel", width=240):
     '''
     new lumiaGUI: ipywidgets can be a real pain in the butt. It seemed impossible to make execution wait until the user 
     has selected the input file using the fileUploader widget. And achieving this is indeed tricky and caused me lots of frustration 
@@ -259,13 +310,11 @@ def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='
     around this. Look at these resources to know more about it: 
     https://pypi.org/project/jupyter-ui-poll/  and  
     https://stackoverflow.com/questions/76564282/how-to-get-an-ipywidget-to-wait-for-user-input-then-continue-running-your-scrip 
-    The current commit is the first test of getting this to work at all and is placed at the beginning of everything,
-    just because it is WORKING :)
-    Note that the first block is the original example and the second uses the fileUploader widget instead of a dropdown box.
     '''
     global button_clicked
     button_clicked = False
-    whichButton=1 # which on ewas clicked?
+    global whichButton
+    whichButton=1 # which on was clicked?
     
     # Create a function to continue the execution
     def on_click(b):
@@ -274,7 +323,12 @@ def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='
         on_click
 
     def on_cancel(b):
+        print('Cancel pressed')
+        global whichButton
         whichButton=2
+        global button_clicked
+        button_clicked = True
+        on_cancel
     
     watchedWidget.on_click(on_click)
     if(watchedWidget2 is None):
@@ -291,6 +345,7 @@ def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='
             poll(10)          # React to UI events (upto 10 at a time)
             time.sleep(0.1)
 
+    print(f'returning whichButton={whichButton}')
     return (whichButton) 
 
 
