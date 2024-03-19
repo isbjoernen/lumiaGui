@@ -8,10 +8,12 @@ import pandas as pd
 import argparse
 from datetime import datetime,  timedelta
 import time
-from jupyter_ui_poll import ui_events
 import yaml
 import time
 import re
+import ipywidgets  as wdg
+import functools
+from jupyter_ui_poll import ui_events
 from pandas import to_datetime
 from loguru import logger
 import _thread
@@ -163,6 +165,7 @@ def prepareCallToLumiaGUI(ymlFile, args):
     lumiaGuiAppInst.sTmpPrfx=ymlContents[ 'run']['thisRun']['uniqueTmpPrefix'] 
     lumiaGuiAppInst.oldDiscoveredObservations=oldDiscoveredObservations
     lumiaGuiAppInst.iVerbosityLv=iVerbosityLv
+    #lumiaGuiAppInst.dbgHelper()
     guiPg1TpLv=lumiaGuiAppInst.guiPage1AsTopLv( iVerbosityLv=iVerbosityLv)  # the first of 2 pages of the GUI implemented as a toplevel window (init)
         #lumiaGuiAppInst.runPage2  # execute the central method of lumiaGuiApp
     if(USE_TKINTER):
@@ -183,7 +186,6 @@ def prepareCallToLumiaGUI(ymlFile, args):
 
 
 
-
 # =============================================================================
 # Tkinter solution for GUI
 # =============================================================================
@@ -195,7 +197,101 @@ class lumiaGuiApp:
             self.label1 = tk.Label(self.root, text="App main window - hosting the second GUI page.")
             self.root.protocol("WM_DELETE_WINDOW", self.closeApp)
         #self.label1.pack()
+ 
+    def dbgHelper(self):
+        self.bUseCachedList=False
+
+        scrollableFrame4Widgets = ge.pseudoRootFrame()
+        row=1
+        guiRow=1
+        gridID=int(102)
+        self.widgetsLst = [] # list to hold dynamically created widgets that are created for each dataset found.
+        self.widgetID_LUT={}  # wdgGrid3 assigns each widget a consecutive ID (a string) of style 'widget001', .. , 'widget488' for which we need a lookup table to convert into widgetGridID
+        colidx=2
+        self.nCols=5
+        self.wdgGrid3 = wdg.GridspecLayout(n_rows=3, n_columns=self.nCols,  grid_gap="3px")
+        myWidgetVar= ge.guiBooleanVar(value=True)
+        try:
+            myWidgetCountry  = ge.GridCTkCheckBox(self, scrollableFrame4Widgets, gridID, command=self.EvHdPg2myCheckboxEvent,  variable=myWidgetVar, 
+                                                text='CH', text_color='gray10', text_color_disabled='gray50', font=("Georgia", 12), onvalue=True, offvalue=False)  
+        except:
+            print(f'creation of widget myWidgetCountry with gridID {gridID} failed')
+        #if(USE_TKINTER):
+        #countryCkbEvtCommand=lambda widgetID=myWidgetCountry.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetCountry.widgetGridID)
+            #myWidgetCountry.configure(command=countryCkbEvtCommand) 
+            # myWidgetCountry.configure(command=lambda widgetID=myWidgetCountry.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetCountry.widgetGridID)) 
+        #ge.guiConfigureWdg(self, widget=myWidgetCountry,  command=countryCkbEvtCommand)
+        #if not (USE_TKINTER):
+        #    myWidgetCountry.observe(myWidgetCountry.actOnCheckBoxChanges)
+        ge.guiSetCheckBox(myWidgetCountry, True) # myWidgetCountry.select()
+        ge.guiPlaceWidget(self.wdgGrid3, myWidgetCountry, row=guiRow, column=colidx, columnspan=1, rowspan=1, widgetID_LUT=self.widgetID_LUT, padx='10px', pady='10px', sticky='news')
+        #myWidgetCountry.grid(row=guiRow, column=colidx, columnspan=1, padx=xPadding, pady=yPadding,sticky='news')
+        self.widgetsLst.append(myWidgetCountry)
+        self.wdgGrid3
+        display(self.wdgGrid3)
+
+        title='Load my file'
+        filename = ge.guiFileDialogDoAll(filetypes='*', title=title)
+        print(f'filename={filename}')
+        return
+        self.bSuggestOldDiscoveredObservations=False
+        self.check4recentDiscoveredObservations(self.ymlContents)
+        if(self.haveDiscoveredObs):
+            self.bSuggestOldDiscoveredObservations=self.canUseRecentDiscoveredObservations()
+        if(self.bSuggestOldDiscoveredObservations):
+            if(USE_TKINTER):
+                self.bUseCachedList = ge.guiAskyesno(title='Use previous list of obs data?',
+                            message=self.ageOfExistingDiscoveredObservations)
+            else:
+                print('..suggest cached obs data...')
+                self.wdgGrid4 = wdg.GridspecLayout(n_rows=2, n_columns=3,  grid_gap="5px")
+                self.Pg1cachedObsDataLabel = ge.guiTxtLabel(self.guiPg1TpLv, text=self.ageOfExistingDiscoveredObservations,  width=600)
+                self.Pg1UseCachedButton = ge.guiButton(self.guiPg1TpLv, text="Use cached Discovered-obs-data",  width=240)
+                self.Pg1DontUseCachedButton = ge.guiButton(self.guiPg1TpLv, text="Hunt for latest data from the carbon portal",  width=300)
+                ge.guiPlaceWidget(self.wdgGrid4, self.Pg1cachedObsDataLabel, row=0,  column=0, columnspan=2, rowspan=1,  padx=10, pady=10, sticky='news')
+                ge.guiPlaceWidget(self.wdgGrid4, self.Pg1UseCachedButton, row=1, column=0, columnspan=1, rowspan=1,  padx=10, pady=10, sticky='news')
+                ge.guiPlaceWidget(self.wdgGrid4, self.Pg1DontUseCachedButton, row=1, column=1, columnspan=1, rowspan=1,  padx=10, pady=10, sticky='news')
+                self.wdgGrid4
+                display(self.wdgGrid4)
+                try:
+                    whichButton=ge.guiWidgetsThatWait4UserInput(watchedWidget=self.Pg1UseCachedButton,watchedWidget2=self.Pg1DontUseCachedButton, 
+                            title='',  myDescription="Use cached Discovered-obs-data",  myDescription2="Hunt for latest data from the carbon portal", width=300)
+                except:
+                    whichButton=1
+                if(whichButton==1): 
+                    self.bUseCachedList = True
+                else:
+                    self.bUseCachedList = False
+        else:
+            print('no cached data on offer...')
+        if(USE_TKINTER):
+            self.guiPg1TpLv.iconify()
+        # Save  all details of the configuration and the version of the software used:
+        try:
+            with open(self.ymlFile, 'w') as outFile:
+                yaml.dump(self.ymlContents, outFile)
+        except:
+            sTxt=f"Fatal Error: Failed to write to text file {self.ymlFile} in local run directory. Please check your write permissions and possibly disk space etc."
+            logger.error(sTxt)
+            self.closeTopLv(bWriteStop=True)  # Abort. Do not proceed to page 2
+        logger.info("Done. LumiaGui part-1 completed successfully. Config file updated.")
         
+        # At this moment the commandline is visible. Before closing the toplevel and proceeding, we need to discover any requested data.
+        # Once collected, we have the relevant info to create the 2nd gui page and populate it with dynamical widgets.
+        self.huntAndGatherObsData()
+        # Get the currently selected tracer from the yml config file
+        self.tracer=hk.getTracer(self.ymlContents['run']['tracers'])
+        # Ranking of data records from CarbonPortal : populate the ObsFileRankingBoxTxt
+        rankingList=self.ymlContents['observations'][self.tracer]['file']['ranking']
+        self.ObsFileRankingBoxTxt=""
+        rank=4
+        for sEntry in  rankingList:
+            self.ObsFileRankingBoxTxt+=str(rank)+': '+sEntry+'\n'
+            rank=rank-1
+        self.runPage2() 
+        return True
+    
+ 
     def closeTopLv(self, bWriteStop=True):  # of lumiaGuiApp
         if(USE_TKINTER):
             self.guiPg1TpLv.destroy()
@@ -207,6 +303,7 @@ class lumiaGuiApp:
         if(USE_TKINTER):
             self.root.deiconify()
         self.runPage2()  
+        return True
 
     def closeApp(self, bWriteStop=True):  # of lumiaGuiApp
         bs.cleanUp(self,  bWriteStop=bWriteStop)
@@ -230,6 +327,7 @@ class lumiaGuiApp:
     # ====================================================================
     def EvHdPg1ExitWithSuccess(self):
         self.closeApp(bWriteStop=False)
+        return True
                 
     def EvHdPg1GotoPage2(self):
         bGo=False
@@ -294,6 +392,7 @@ class lumiaGuiApp:
             # Once collected, we have the relevant info to create the 2nd gui page and populate it with dynamical widgets.
             self.huntAndGatherObsData()
             self.closeTopLv(bWriteStop=False)
+        return True
             
     def EvHdPg1selectFile(self):
         filename = ge.guiFileDialog() 
@@ -306,6 +405,7 @@ class lumiaGuiApp:
         # if textvariable is longer than its entry box, i.e. the path spills over, it will be right-aligned, showing the end with the file name
         if(USE_TKINTER):
             self.Pg1ObsFileLocationLocalEntry.xview_moveto(1)  
+        return True
 
     def EvHdPg1SetObsFileLocation(self):
         
@@ -318,6 +418,7 @@ class lumiaGuiApp:
             ObsFileLocation=self.Pg1ObsFileLocationRadioButtons.value
             print(f'..ObsFileLocation={ObsFileLocation}')
             self.ymlContents['observations'][self.tracer]['file']['location'] =ObsFileLocation
+        return True
 
     def EvHdPg1SetTracer(self):
         if(USE_TKINTER): # tkinter returns the index (int) of the selected radiobutton
@@ -329,6 +430,7 @@ class lumiaGuiApp:
             TracerRbVal=self.Pg1TracerRadioButton.value
             print(f'..TracerRbVal={TracerRbVal}')
             self.ymlContents['run']['tracers'] = TracerRbVal
+        return True
 
     def getFilters(self):
         self.bUseStationAltitudeFilter=self.ymlContents['observations']['filters']['bStationAltitude']
@@ -337,6 +439,7 @@ class lumiaGuiApp:
         self.stationMaxAlt = self.ymlContents['observations']['filters']['stationMaxAlt']  # in meters amsl
         self.inletMinHght = self.ymlContents['observations']['filters']['inletMinHeight']     # in meters amsl
         self.inletMaxHght = self.ymlContents['observations']['filters']['inletMaxHeight']  # in meters amsl
+        return True
 
     def check4recentDiscoveredObservations(self, ymlContents):
         # Do we have a DiscoveredObservations.csv file from a previous run that a user could use?
@@ -376,6 +479,7 @@ class lumiaGuiApp:
             except:
                 pass
             self.haveDiscoveredObs=True
+        return True
             
 
     def huntAndGatherObsData(self):
@@ -497,7 +601,85 @@ class lumiaGuiApp:
         except:
             pass
         self.newDf = newDf    
+        return True
 
+    class GridCTkCheckBox(wdg.Checkbox):
+        #bObserve=False
+    
+        def __init__(self, parent, root, myGridID, command, variable, text='',  *args, **kwargs):
+            #ctk.CTkCheckBox.__init__(self, root, *args, **kwargs) 
+            self.widgetGridID= myGridID
+            #if((self.widgetGridID==202) or (self.widgetGridID==1) or (self.widgetGridID==11802)):
+            #    print(f'L command={command},  self.widgetGridID={self.widgetGridID}')
+            # self.ptrToEvHdPg2myCheckboxEvent=lambda: command(self.widgetGridID)
+            self.command=command
+            self.lumiaGuiApp=parent
+            #if((self.widgetGridID==202) or (self.widgetGridID==1) or (self.widgetGridID==11802)):
+            #    print(f'L self.ptrToEvHdPg2myCheckboxEvent={self.ptrToEvHdPg2myCheckboxEvent},  self.widgetGridID={self.widgetGridID}')
+            #self.eventHandlerFunction=lambda: command(self.widgetGridID)
+            wdg.Checkbox.__init__(self, 
+                value=variable,
+                description=text,
+                disabled=False,
+                indent=False
+            )
+
+            #modelname = "test"
+            #trainfolder = Path('Data/Segmentation/dataset/train')
+            #btn = widgets.Button(description="Run")
+            #btn.on_click(lambda self, trainfolder=trainfolder, modelname=modelname : segmentation_training(trainfolder,modelname))
+            #display(btn)
+    
+            def actOnCheckBoxChanges(change):
+                # What we are most interested in is the grid_area='widget011' information contained in the change event that allows us 
+                # to identify which widget has fired the event. When initialised, layout.grid_area is None and then we don't want to fire.
+                # print(change)
+                # {'name': '_property_lock', 'old': {}, 'new': {'value': False}, 'owner': GridCTkCheckBox(value=True, description='JFJ', indent=False, 
+                #     layout=Layout(grid_area='widget011', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}
+                try:
+                    #owner=change['owner']
+                    #print(f'got owner={owner}')
+                    chName=change['name']
+                    # we are only interested in events where there is a change in value selected/deselected True/False etc
+                    # changeEvent={'name': '_property_lock', 'old': {}, 'new': {'value': False}, 'owner': GridCTkCheckBox(value=True, description='JFJ', indent=False, layout=Layout(grid_area='widget011', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}                
+                    # changeEvent={'name': 'value', 'old': True, 'new': False, 'owner': GridCTkCheckBox(value=False, description='JFJ', indent=False, layout=Layout(grid_area='widget011', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}
+                    if('value' in chName):
+                        value=True
+                        description=change['owner'].description  # 'CH' 'JFJ' a country or station name code or empty if a Select button
+                        #value=True
+                        try:
+                            value=change['owner'].value  # True/False for check box now being selected or deselected
+                        except:
+                            print('Failed to extract the value')
+                        #print(f'got description={description},  value={value}')
+                        #try:
+                        #    layout=change['owner'].layout
+                        #    print(f'layout={layout}')
+                        #except:
+                        #    pass
+                        try:
+                            wdgGridTxt=change['owner'].layout.grid_area
+                            if not (wdgGridTxt is None):
+                                print(f'changeEvent={change}')
+    
+                                # print(f'Calling self.parent.EvHdPg2myCheckboxEvent(gridID=99999) with self.lumiaGuiApp={self.lumiaGuiApp.EvHdPg2myCheckboxEvent}')
+                                # def EvHdPg2myCheckboxEvent(self, gridID=None,  wdgGridTxt='',  value=None,  description=''):
+                                
+                                print(f'CheckBox Change event with: self.widgetGridID={self.widgetGridID} wdgGridTxtID={wdgGridTxt},  value={value},  description={description}')
+                                self.lumiaGuiApp.EvHdPg2myCheckboxEvent(gridID=self.widgetGridID, wdgGridTxt=wdgGridTxt,value=value,description=description )
+                        except:
+                            pass
+                    actOnCheckBoxChanges
+                except:
+                    pass
+                #display(actOnCheckBoxChanges)
+
+            self.observe(actOnCheckBoxChanges)
+            # Button click callbacks should take a single argument which will be the button widget that was clicked.  
+            # You don't have to use it, but the function must take that button as an argument.  
+            # Using a lambda that takes a single argument is also acceptable.
+            # button.on_click(lambda b: hello_world())
+            return 
 
     # ====================================================================
     # EventHandler and helper functions for widgets of the second GUI page  -- part of lumiaGuiApp (root window)
@@ -509,6 +691,8 @@ class lumiaGuiApp:
         # one textLabel for the remaining info on station altitude, network, lat, lon, dataRanking and dataDescription
         self.nWidgetsPerRow=5
         gridRow=[]
+        self.activeTextColor='gray10'
+        self.inactiveTextColor='gray50'
         
         bSelected=row['selected']
         if(bSelected):
@@ -519,22 +703,15 @@ class lumiaGuiApp:
         stationInactive=row['stationID'] in self.excludedStationsList
         
         colidx=int(0)  # row['selected']
-        # ###################################################
         gridID=int((100*rowidx)+colidx)  # encode row and column in the button's variable
         myWidgetVar= ge.guiBooleanVar(value=row['selected'])
-        myWidgetSelect  = ge.GridCTkCheckBox(scrollableFrame4Widgets, gridID,  variable=myWidgetVar, text="",font=("Georgia", fsNORMAL),
-                                                            text_color=sTextColor, text_color_disabled=sTextColor, 
-                                                            onvalue=True, offvalue=False) 
-        if(USE_TKINTER):
-            myWidgetSelect.configure(command=lambda widgetID=myWidgetSelect.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetSelect.widgetGridID)) 
-        #ge.guiConfigureWdg(self, widget=self.Pg1displayBox,  state=tk.DISABLED,  command=None,  text_color=None,  fg_color=None,  bg_color=None)
+        myWidgetSelect  = ge.GridCTkCheckBox(self, scrollableFrame4Widgets, gridID,  variable=myWidgetVar, command=self.EvHdPg2myCheckboxEvent, 
+                                                text="",font=("Georgia", fsNORMAL), text_color=sTextColor, text_color_disabled=sTextColor, onvalue=True, offvalue=False) 
         ge.guiSetCheckBox(myWidgetSelect, bSelected)
-        if((countryInactive) or (stationInactive)):
+        if((USE_TKINTER) and ((countryInactive) or (stationInactive))):
             ge.guiSetCheckBox(myWidgetSelect, False) # myWidgetSelect.deselect()
-        ge.guiPlaceWidget(self.wdgGrid3, myWidgetSelect, row=guiRow, column=colidx, columnspan=1, rowspan=1,  padx=xPadding, pady=yPadding, sticky='news')
-        #myWidgetSelect.grid(row=guiRow, column=colidx,
-        #                  columnspan=1, padx=xPadding, pady=yPadding, sticky='news')
-        self.widgetsLst.append(myWidgetSelect) # colidx=1
+        ge.guiPlaceWidget(self.wdgGrid3, myWidgetSelect, row=guiRow, column=colidx, columnspan=1, rowspan=1, widgetID_LUT=self.widgetID_LUT, padx=xPadding, pady=yPadding, sticky='news')
+        self.widgetsLst.append(myWidgetSelect) 
 
         gridRow.append(row['selected'])   
         
@@ -544,18 +721,23 @@ class lumiaGuiApp:
         if((rowidx==0) or (row['includeCountry'] == True)):
             gridID=int((100*rowidx)+colidx)
             myWidgetVar= ge.guiBooleanVar(value=row['includeCountry'])
-            myWidgetCountry  = ge.GridCTkCCheckBox(scrollableFrame4Widgets, gridID, command=self.EvHdPg2myCheckboxEvent,  variable=myWidgetVar, text=row['country'],text_color=sTextColor, text_color_disabled=sTextColor, 
-                                                                font=("Georgia", fsNORMAL), onvalue=True, offvalue=False)  
+            try:
+                myWidgetCountry  = ge.GridCTkCheckBox(self, scrollableFrame4Widgets, gridID, command=self.EvHdPg2myCheckboxEvent,  variable=myWidgetVar, 
+                    text=row['country'],text_color=sTextColor, text_color_disabled=sTextColor, font=("Georgia", fsNORMAL), onvalue=True, offvalue=False)  
+            except:
+                print(f'creation of widget myWidgetCountry with gridID {gridID} failed')
             #if(USE_TKINTER):
             #countryCkbEvtCommand=lambda widgetID=myWidgetCountry.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetCountry.widgetGridID)
                 #myWidgetCountry.configure(command=countryCkbEvtCommand) 
                 # myWidgetCountry.configure(command=lambda widgetID=myWidgetCountry.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetCountry.widgetGridID)) 
             #ge.guiConfigureWdg(self, widget=myWidgetCountry,  command=countryCkbEvtCommand)
-            if(countryInactive):
+            #if not (USE_TKINTER):
+            #    myWidgetCountry.observe(myWidgetCountry.actOnCheckBoxChanges)
+            if((USE_TKINTER) and (countryInactive)):
                 ge.guiSetCheckBox(myWidgetCountry, False) # myWidgetCountry.deselect()
             else:
                 ge.guiSetCheckBox(myWidgetCountry, True) # myWidgetCountry.select()
-            ge.guiPlaceWidget(self.wdgGrid3, myWidgetCountry, row=guiRow, column=colidx, columnspan=1, rowspan=1,  padx=xPadding, pady=yPadding, sticky='news')
+            ge.guiPlaceWidget(self.wdgGrid3, myWidgetCountry, row=guiRow, column=colidx, columnspan=1, rowspan=1, widgetID_LUT=self.widgetID_LUT, padx=xPadding, pady=yPadding, sticky='news')
             #myWidgetCountry.grid(row=guiRow, column=colidx, columnspan=1, padx=xPadding, pady=yPadding,sticky='news')
             self.widgetsLst.append(myWidgetCountry)
         else:
@@ -567,15 +749,22 @@ class lumiaGuiApp:
         num+=1
         gridID=int((100*rowidx)+colidx)
         myWidgetVar= ge.guiBooleanVar(value=row['includeStation'])
-        myWidgetStationid  = ge.GridCTkCheckBox(scrollableFrame4Widgets, gridID, variable=myWidgetVar, text=row['stationID'],text_color=sTextColor, text_color_disabled=sTextColor, 
-                                                            font=("Georgia", fsNORMAL), onvalue=True, offvalue=False) 
-        if(USE_TKINTER):
-            myWidgetStationid.configure(command=lambda widgetID=myWidgetStationid.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetStationid.widgetGridID)) 
-        if(stationInactive):
+        if((gridID==202) or (gridID==11802)):
+            print('.')
+        try:
+            myWidgetStationid  = self.GridCTkCheckBox(self, scrollableFrame4Widgets, gridID, command=self.EvHdPg2myCheckboxEvent, variable=myWidgetVar, 
+                                                    text=row['stationID'],text_color=sTextColor, text_color_disabled=sTextColor, font=("Georgia", fsNORMAL), onvalue=True, offvalue=False) 
+        except:
+            print(f'creation of widget myWidgetStationid with gridID {gridID} failed')
+        #if(USE_TKINTER):
+        #    myWidgetStationid.configure(command=lambda widgetID=myWidgetStationid.widgetGridID : self.EvHdPg2myCheckboxEvent(myWidgetStationid.widgetGridID)) 
+            #if not (USE_TKINTER):
+            #    myWidgetStationid.observe(myWidgetStationid.actOnCheckBoxChanges)
+        if((USE_TKINTER) and (stationInactive)):
             ge.guiSetCheckBox(myWidgetStationid, False) # myWidgetStationid.deselect()
         else:
             ge.guiSetCheckBox(myWidgetStationid, True) # myWidgetStationid.select()
-        ge.guiPlaceWidget(self.wdgGrid3, myWidgetStationid, row=guiRow, column=colidx, columnspan=1, rowspan=1,  padx=xPadding, pady=yPadding, sticky='news')
+        ge.guiPlaceWidget(self.wdgGrid3, myWidgetStationid, row=guiRow, column=colidx, columnspan=1, rowspan=1, widgetID_LUT=self.widgetID_LUT, padx=xPadding, pady=yPadding, sticky='news')
         #myWidgetStationid.grid(row=guiRow, column=colidx, columnspan=1, padx=xPadding, pady=yPadding, sticky='news')
         self.widgetsLst.append(myWidgetStationid)
         gridRow.append(row['stationID'])
@@ -584,13 +773,12 @@ class lumiaGuiApp:
         # ###################################################
         gridID=int((100*rowidx)+colidx)
         myWidgetVar= ge.guiStringVar(value=str(row['samplingHeight'][0])) 
-        myWidgetSamplingHeight  = ge.GridCTkOptionMenu(scrollableFrame4Widgets, gridID, values=sSamplingHeights,
-                                                            variable=myWidgetVar, text_color=sTextColor, text_color_disabled=sTextColor,
+        myWidgetSamplingHeight  = ge.GridCTkOptionMenu(scrollableFrame4Widgets, gridID, command=self.EvHdPg2myOptionMenuEvent, 
+                                                            values=sSamplingHeights, variable=myWidgetVar, text_color=sTextColor, text_color_disabled=sTextColor,
                                                             font=("Georgia", fsNORMAL), dropdown_font=("Georgia",  fsSMALL)) 
-        if(USE_TKINTER):
-            myWidgetSamplingHeight.configure(command=lambda widget=myWidgetSamplingHeight.widgetGridID : self.EvHdPg2myOptionMenuEvent(myWidgetSamplingHeight.widgetGridID, 
-                                                                                            sSamplingHeights))  
-        ge.guiPlaceWidget(self.wdgGrid3, myWidgetSamplingHeight, row=guiRow, column=colidx, columnspan=1, rowspan=1,  padx=xPadding, pady=yPadding, sticky='news')
+        #if(USE_TKINTER):
+        #    myWidgetSamplingHeight.configure(command=lambda widget=myWidgetSamplingHeight.widgetGridID : self.EvHdPg2myOptionMenuEvent(myWidgetSamplingHeight.widgetGridID, sSamplingHeights))  
+        ge.guiPlaceWidget(self.wdgGrid3, myWidgetSamplingHeight, row=guiRow, column=colidx, columnspan=1, rowspan=1, widgetID_LUT=self.widgetID_LUT, padx=xPadding, pady=yPadding, sticky='news')
         #myWidgetSamplingHeight.grid(row=guiRow, column=colidx, columnspan=1, padx=xPadding, pady=yPadding, sticky='news')
         self.widgetsLst.append(myWidgetSamplingHeight)
         gridRow.append(row['samplingHeight'][0])
@@ -613,14 +801,26 @@ class lumiaGuiApp:
         myWidgetOtherLabels  = ge.GridCTkLabel(scrollableFrame4Widgets, gridID, text=myWidgetVar,text_color=sTextColor, text_color_disabled=sTextColor, 
                                                             font=("Georgia", fsNORMAL), textvariable="", justify="right", anchor="e") 
         nRemaining=self.nCols-4  # spread the remaining info over the remaining width of the canvas.                                                       
-        ge.guiPlaceWidget(self.wdgGrid3, myWidgetOtherLabels, row=guiRow, column=colidx, columnspan=nRemaining, rowspan=1,  padx=xPadding, pady=yPadding, sticky='news')
+        ge.guiPlaceWidget(self.wdgGrid3, myWidgetOtherLabels, row=guiRow, column=colidx, columnspan=nRemaining, rowspan=1, widgetID_LUT=self.widgetID_LUT, padx=xPadding, pady=yPadding, sticky='news')
         #myWidgetOtherLabels.grid(row=guiRow, column=colidx, columnspan=6, padx=xPadding, pady=yPadding, sticky='nw')
         self.widgetsLst.append(myWidgetOtherLabels)
         gridRow.append(myWidgetVar)
         # ###################################################
         # guiPg2createRowOfObsWidgets() completed
+        return True
 
-    def EvHdPg2myCheckboxEvent(self, gridID):
+    def EvHdPg2myCheckboxEvent(self, gridID=None,  wdgGridTxt='',  value=None,  description=''):
+        print(f'EvHdPg2myCheckboxEvent: gridID={gridID},  wdgGridTxt={wdgGridTxt},  description={description}')
+        if not(value is None):
+            print(f'value={value}')
+        try:
+            #print(f'self.lumiaGuiApp={self.lumiaGuiApp}')
+            #print(f'self.lumiaGuiApp.EvHdPg2myCheckboxEvent={self.lumiaGuiApp.EvHdPg2myCheckboxEvent}')
+            if((len(wdgGridTxt)>1) and (value is not None)):
+                self=self.lumiaGuiApp # The callback from method guiElements_ipyWdg.GridCTkCheckBox.actOnCheckBoxChanges(change)
+               #  to this method sends its widget's "self" but we need the "self" representing its parent, the lumiaGuiApp, as opposed to the checkboxe's identity.
+        except:
+            pass
         ri=int(0.01*gridID)  # row index for the widget on the grid
         ci=int(gridID-(100*ri))  # column index for the widget on the grid
         row=self.newDf.iloc[ri]
@@ -737,6 +937,7 @@ class lumiaGuiApp:
                     row=self.newDf.iloc[ri]
                     if (thisStation not in row['stationID']) :
                         bSameStation=False
+        return True
  
 
     def EvHdPg2myOptionMenuEvent(self, gridID, sSamplingHeights):
@@ -769,6 +970,7 @@ class lumiaGuiApp:
                         nPos+=1
                 except:
                     pass
+        return True
 
 
     def EvHdPg2updateRowOfObsWidgets(self, rowidx, row):
@@ -827,6 +1029,7 @@ class lumiaGuiApp:
                         ge.guiSetCheckBox(self.widgetsLst[widgetID], False) #self.widgetsLst[widgetID].deselect()
             except:
                 pass
+        return True
         
 
 
@@ -943,7 +1146,7 @@ class lumiaGuiApp:
         self.placeAllPg1WidgetsOnCanvas(nCols,  nRows,  xPadding,  yPadding)
         if not (USE_TKINTER): 
             whichButton=ge.guiWidgetsThatWait4UserInput(watchedWidget=self.Pg1GoButton,watchedWidget2=self.Pg1CancelButton, title='',  myDescription="PROCEED",  myDescription2="Cancel", width=240)
-            print(f'obtained whichButton={whichButton}')
+            # print(f'obtained whichButton={whichButton}')
             if(whichButton==2): 
                 self.closeTopLv(bWriteStop=True)  # Abort. Do not proceed to page 2                
             ObsFileLocation=self.Pg1ObsFileLocationRadioButtons.value
@@ -954,6 +1157,7 @@ class lumiaGuiApp:
             print(f'tracer={tracer}')
             self.ymlContents['run']['tracers'] = tracer
             self.EvHdPg1GotoPage2()
+        return True
 
     def createAllPg1Widgets(self):
         # ====================================================================
@@ -1082,6 +1286,7 @@ class lumiaGuiApp:
         if(USE_TKINTER): # TODO fix
             ge.updateWidget(self.Pg1GoButton,  value='gray1', bText_color=True)
             ge.updateWidget(self.Pg1GoButton,  value='green3', bFg_color=True) # in CTk this is the main button color (not the text color)
+        return True
 
 
     def  placeAllPg1WidgetsOnCanvas(self, nCols,  nRows,  xPadding,  yPadding):
@@ -1174,6 +1379,7 @@ class lumiaGuiApp:
         if(not USE_TKINTER):
             self.wdgGrid
             display(self.wdgGrid)
+        return True
 
 
     # ====================================================================
@@ -1401,6 +1607,7 @@ class lumiaGuiApp:
             self.newDf.at[(ri) ,  ('HghtOk')] = row['HghtOk']
             if((bSel != bS) and (int(row['dClass'])==4)): 
                 self.EvHdPg2updateRowOfObsWidgets(ri, row)
+        return True
                 
                 
 
@@ -1432,6 +1639,7 @@ class lumiaGuiApp:
             self.ymlContents['observations']['filters']['stationMaxAlt']=mxh
             self.ymlContents['observations']['filters']['stationMinAlt']=mnh
         self.applyFilterRulesPg2()                       
+        return True
         
     def EvHdPg2stationSamplingHghtAction(self):
         inletMinHeightCommonSense = 0    # in meters
@@ -1461,6 +1669,7 @@ class lumiaGuiApp:
             self.ymlContents['observations']['filters']['inletMaxHeight']=mxh
             self.ymlContents['observations']['filters']['inletMinHeight']=mnh
         self.applyFilterRulesPg2()
+        return True
     
     def EvHdPg2isICOSfilter(self):
         ge.getWidgetValue()
@@ -1479,6 +1688,7 @@ class lumiaGuiApp:
         print(f'isICOSrbValue={isICOSrbValue}')
         self.ymlContents['observations']['filters']['ICOSonly']=bICOSonly
         self.applyFilterRulesPg2()                       
+        return True
 
 
     def EvHdPg2GoBtnHit(self):
@@ -1568,6 +1778,7 @@ class lumiaGuiApp:
         # self.bPleaseCloseTheGui.set(True)
         global LOOP2_ACTIVE
         LOOP2_ACTIVE = False
+        return True
 
     
     # ====================================================================
@@ -1589,6 +1800,7 @@ class lumiaGuiApp:
         # Plan the layout of the GUI - get screen dimensions, choose a reasonable font size for it, xPadding, etc.
         nCols=8 # sum of labels and entry fields per row
         nRows=32 #5+len(self.newDf) # number of rows in the GUI - not so important - window is scrollable
+        self.nCols=nCols
         maxAspectRatio=16/9.0 # we need the full width of the sceen, so allow max screen width when checked against the max aspect ratio
         bs.stakeOutSpacesAndFonts(self.root, nCols, nRows, USE_TKINTER,  sLongestTxt="Obsdata Rankin",  maxAspectRatio=maxAspectRatio)
         # this gives us self.root.colWidth self.root.rowHeight, self.myFontFamily, self.fontHeight, self.fsNORMAL & friends
@@ -1617,7 +1829,9 @@ class lumiaGuiApp:
             self.wdgGrid3 = None
         else:
             rootFrame=ge.pseudoRootFrame()
-            self.wdgGrid = wdg.GridspecLayout(n_rows=6, n_columns=nCols,  grid_gap="3px")
+            self.wdgGrid = wdg.GridspecLayout(n_rows=6, n_columns=self.nCols,  grid_gap="3px")
+            out = wdg.Output()
+            display(out)
         #self.deiconify()
             
 
@@ -1628,7 +1842,9 @@ class lumiaGuiApp:
         #rankingList=self.ymlContents['observations'][self.tracer]['file']['ranking']
         self.ObsFileRankingTbxVar = ge.guiStringVar(value="ObsPack")
         # ObservationsFileLocation
+        self.tracer=hk.getTracer(self.ymlContents['run']['tracers'])
         self.iObservationsFileLocation= ge.guiIntVar(value=1) # Read observations from local file
+        self.tracer='co2'
         if ('CARBONPORTAL' in self.ymlContents['observations'][self.tracer]['file']['location']):
             if(USE_TKINTER):
                 self.iObservationsFileLocation.set(1) # Read observations from CarbonPortal
@@ -1662,7 +1878,7 @@ class lumiaGuiApp:
         # Placement of the static widgets of the second GUI page  -- part of lumiaGuiApp (root window)
         # 1) Static widgets (top part)
         # ====================================================================
-        self.placePg2staticWidgetsOnCanvas(nCols,  nRows,  xPadding,  yPadding)
+        self.placePg2staticWidgetsOnCanvas(self.nCols,  nRows,  xPadding,  yPadding)
         if(not USE_TKINTER):
             self.wdgGrid
             display(self.wdgGrid)
@@ -1709,6 +1925,7 @@ class lumiaGuiApp:
         sLastCountry=''
         sLastStation=''
         num = 0  # index for 
+        self.widgetID_LUT={}  # wdgGrid3 assigns each widget a consecutive ID (a string) of style 'widget001', .. , 'widget488' for which we need a lookup table to convert into widgetGridID
         for rowidx, row in self.newDf.iterrows(): 
             guiRow=rowidx # startRow+rowidx
             if((rowidx==0) or (row['country'] not in sLastCountry)):
@@ -1743,13 +1960,16 @@ class lumiaGuiApp:
             # Set the scrollableCanvas scrolling region
             scrollableCanvas.config(scrollregion=scrollableCanvas.bbox("all"))
         else: 
+            # print(f'widgetID_LUT={self.widgetID_LUT}')
             self.wdgGrid3
             display(self.wdgGrid3)
-            whichButton=ge.guiWidgetsThatWait4UserInput(watchedWidget=self.Pg2GoButton,watchedWidget2=self.Pg2CancelButton, title='',  myDescription="PROCEED",  myDescription2="Cancel", width=240)
+            whichButton=ge.guiWidgetsThatWait4UserInput(watchedWidget=self.Pg2GoButton,watchedWidget2=self.Pg2CancelButton, 
+                                                                                            title='',  myDescription="PROCEED",  myDescription2="Cancel", width=240)
             if(whichButton==1): 
                 self.EvHdPg2GoBtnHit
             else:
                 self.closeApp(bWriteStop=True) # Abort run
+        return True
 
 
     def createPg2staticWidgets(self, rootFrame):
@@ -1764,7 +1984,10 @@ class lumiaGuiApp:
         #  ##############################################################################
         # Ranking for Observation Files
         self.RankingLabel = ge.guiTxtLabel(rootFrame, text="Obsdata Ranking", fontName=self.root.myFontFamily,  fontSize=self.root.fsNORMAL, nCols=self.nCols,  colwidth=1)
-        self.ObsFileRankingBox = ge.guiTextBox(rootFrame,  text=self.ObsFileRankingBoxTxt,  width=self.root.colWidth,  height=(2.4*self.root.rowHeight+self.root.vSpacer),  fontName=self.root.myFontFamily,  fontSize=self.root.fsSMALL)
+        try:
+            self.ObsFileRankingBox = ge.guiTextBox(rootFrame,  text=self.ObsFileRankingBoxTxt,  width=self.root.colWidth,  height=(2.4*self.root.rowHeight+self.root.vSpacer),  fontName=self.root.myFontFamily,  fontSize=self.root.fsSMALL)
+        except:
+            self.ObsFileRankingBox=None
         # Col2
         #  ##############################################################################
         self.ObsLv1Ckb = ge.guiCheckBox(rootFrame, text="Level1", fontName=self.root.myFontFamily,  fontSize=self.root.fsNORMAL,
@@ -1828,6 +2051,7 @@ class lumiaGuiApp:
         if(USE_TKINTER):
             myLabels="Selected     Country     StationID     SamplingHeight   Stat.altitude  ICOS-affil. Latitude Longitude  DataRanking DataDescription"
         self.ColLabels = ge.guiTxtLabel(rootFrame, anchor="w", text=myLabels, fontName=self.root.myFontFamily,  fontSize=self.root.fsNORMAL, nCols=self.nCols,  colwidth=(self.nCols-1))
+        return True
 
    
     def  placePg2staticWidgetsOnCanvas(self, nCols,  nRows,  xPadding,  yPadding):
@@ -1838,7 +2062,8 @@ class lumiaGuiApp:
         ge.guiPlaceWidget(self.wdgGrid, self.Pg2TitleLabel, row=0, column=0, columnspan=nCols,padx=xPadding, pady=yPadding, sticky="ew")
         ge.guiPlaceWidget(self.wdgGrid, self.RankingLabel, row=1, column=0, columnspan=1,padx=xPadding, pady=yPadding, sticky="ew")
         #self.RankingLabel.grid(row=1, column=0, columnspan=1, padx=xPadding, pady=yPadding, sticky="nw")
-        ge.guiPlaceWidget(self.wdgGrid, self.ObsFileRankingBox, row=2, column=0, columnspan=1,  rowspan=2,padx=xPadding, pady=yPadding, sticky="ew")
+        if not (self.ObsFileRankingBox is None):
+            ge.guiPlaceWidget(self.wdgGrid, self.ObsFileRankingBox, row=2, column=0, columnspan=1,  rowspan=2,padx=xPadding, pady=yPadding, sticky="ew")
         #self.ObsFileRankingBox.grid(row=2, column=0, columnspan=1, rowspan=2, padx=xPadding, pady=yPadding, sticky="nsew")
         # Col2
         #  ##############################################################################
@@ -1886,6 +2111,7 @@ class lumiaGuiApp:
         # newColumnNames=['selected','country', 'stationID', 'altOk', 'altitude', 'HghtOk', 'samplingHeight', 'isICOS', 'latitude', 'longitude', 'dClass', 'dataSetLabel', 'pid', 'includeCountry', 'includeStation']
         ge.guiPlaceWidget(self.wdgGrid, self.ColLabels, row=4, column=0, columnspan=nCols,padx=xPadding, pady=yPadding, sticky="ew")
         #self.ColLabels.grid(row=4, column=0, columnspan=10, padx=2, pady=yPadding, sticky="nw")
+        return True
    
 
 def  readMyYamlFile(ymlFile):

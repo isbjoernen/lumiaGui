@@ -3,8 +3,7 @@ import ipywidgets  as wdg
 from loguru import logger
 import time
 from jupyter_ui_poll import ui_events
-import ipywidgets as widgets
-from ipywidgets import  Dropdown, Output, Button, FileUpload, SelectMultiple, Text, HBox, IntProgress
+#from ipywidgets import  Dropdown, Output, Button, FileUpload, SelectMultiple, Text, HBox, IntProgress
 
 from IPython.display import display
 
@@ -31,15 +30,91 @@ class pseudoRootFrame:
         self.inactiveTextColor='gray50'
 
 class GridCTkCheckBox(wdg.Checkbox):
-    def __init__(self, root, myGridID,  variable, text='',  *args, **kwargs):
+    #bObserve=False
+
+    def __init__(self, parent,  root, myGridID, command, variable, text='',  *args, **kwargs):
         #ctk.CTkCheckBox.__init__(self, root, *args, **kwargs) 
         self.widgetGridID= myGridID
+        self.command=command
+        self.lumiaGuiApp=parent
+        if((self.widgetGridID==200) or (self.widgetGridID==1) or (self.widgetGridID==11802)):
+            print(f'command={command},  self.widgetGridID={self.widgetGridID}')
+        #self.ptrToEvHdPg2myCheckboxEvent=lambda: command(self.widgetGridID)
+        #self.eventHandlerFunction=lambda: command(self.widgetGridID)
         wdg.Checkbox.__init__(self, 
             value=variable,
             description=text,
             disabled=False,
             indent=False
         )
+
+        def actOnCheckBoxChanges(change):
+            try:
+                chName=change['name']
+                # we are only interested in events where there is a change in value selected/deselected True/False etc
+                # changeEvent={'name': '_property_lock', 'old': {}, 'new': {'value': False}, 'owner': GridCTkCheckBox(value=True, description='JFJ', indent=False, layout=Layout(grid_area='widget011', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}                
+                # changeEvent={'name': 'value', 'old': True, 'new': False, 'owner': GridCTkCheckBox(value=False, description='JFJ', indent=False, layout=Layout(grid_area='widget011', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}
+                if('value' in chName):
+                    value=True
+                    description=change['owner'].description  # 'CH' 'JFJ' a country or station name code or empty if a Select button
+                    try:
+                        value=change['owner'].value  # True/False for check box now being selected or deselected
+                    except:
+                        print('Failed to extract the value')
+                    try:
+                        wdgGridTxt=change['owner'].layout.grid_area
+                        if not (wdgGridTxt is None):
+                            #print(f'changeEvent={change}')
+
+                            # print(f'Calling self.parent.EvHdPg2myCheckboxEvent(gridID=99999) with self.lumiaGuiApp={self.lumiaGuiApp.EvHdPg2myCheckboxEvent}')
+                            # def EvHdPg2myCheckboxEvent(self, gridID=None,  wdgGridTxt='',  value=None,  description=''):
+
+                            if((self.widgetGridID==200) or (self.widgetGridID==1) or (self.widgetGridID==11802)):
+                               print(f'CheckBox Change event with: self.widgetGridID={self.widgetGridID} wdgGridTxtID={wdgGridTxt},  value={value},  description={description}')
+                            self.lumiaGuiApp.EvHdPg2myCheckboxEvent(gridID=self.widgetGridID, wdgGridTxt=wdgGridTxt,value=value,description=description )
+ 
+                            #try:
+                            #    ptr2EvHdPg2myCheckboxEvent=lambda: self.command(self.widgetGridID)
+                            #    print(f'running ptr2EvHdPg2myCheckboxEvent={ptr2EvHdPg2myCheckboxEvent}=lambda: self.command(self.widgetGridID={self.widgetGridID}) -- with command={command}')
+                            #    print(f'running self.command={self.command}=lambda: self.command(self.widgetGridID={self.widgetGridID}) -- with command={command}')
+                            #    ptr2EvHdPg2myCheckboxEvent
+                            #    print('ran ptr2EvHdPg2myCheckboxEvent')
+                            #except:
+                            #    pass
+                            #try:
+                            #    print(f'running ptrToEvHdPg2myCheckboxEvent, self.widgetGridID={self.widgetGridID}')
+                            #    self.ptrToEvHdPg2myCheckboxEvent
+                            #    print('ran ptrToEvHdPg2myCheckboxEvent')
+                            #except:
+                            #    pass
+                            #try:
+                            #    print('running self.EvHdPg2myCheckboxEvent(wdgGridTxt=wdgGridTxt,  value=value,  description=description)')
+                            #    self.EvHdPg2myCheckboxEvent(wdgGridTxt=wdgGridTxt,  value=value,  description=description)
+                            #    print('ran self.EvHdPg2myCheckboxEvent')
+                            #except:
+                            #    pass
+                    except:
+                        pass
+            except:
+                pass
+            return True
+
+        self.observe(actOnCheckBoxChanges)
+        return
+        #    command=ptrToEvHdPg2myCheckboxEvent,
+        #out = widgets.Output() 
+        #@out.capture()
+        #ptrToEvHdPg2myCheckboxEvent(self.widgetGridID)
+    #wdg.Checkbox.observe(actOnCheckBoxChanges)
+    #display(out)
+"""
+Event triggered in GridCTkCheckBox(self.widgetGridID=1)
+{'name': '_property_lock', 'old': {'value': False}, 'new': {}, 'owner': GridCTkCheckBox(value=False, description='CH', indent=False, 
+            layout=Layout(grid_area='widget002', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}
+Event triggered in GridCTkCheckBox(self.widgetGridID=202)
+{'name': '_property_lock', 'old': {'value': False}, 'new': {}, 'owner': GridCTkCheckBox(value=False, description='JFJ', indent=False,
+            layout=Layout(grid_area='widget011', height='30px', margin='2px', padding='2px', width='auto')), 'type': 'change'}            
+"""
 
 class GridCCTkCheckBox(wdg.Checkbox):
     def __init__(self, root, myGridID,  variable, text='',  *args, **kwargs):
@@ -59,7 +134,7 @@ class GridCTkLabel(wdg.Text):
     def __init__(self, root, myGridID, text='',  description='', *args, **kwargs):
         self.widgetGridID= myGridID
         sWdth="auto" # sWdth='55%%'            
-        layout = widgets.Layout(width=sWdth)
+        layout = wdg.Layout(width=sWdth)
         
         wdg.Text.__init__(self, 
         value=text, 
@@ -114,7 +189,7 @@ def guiAskOkCancel(title="Untitled",  message="Is it ok?"):
 
 def guiButton(master, text='Ok',  command=None,  fontName="Georgia",  fontSize=12, width=200):
     sWdth=f'{width}px'            
-    layout = widgets.Layout(width=sWdth)
+    layout = wdg.Layout(width=sWdth)
     return(wdg.Button(
     description=text,
     disabled=False,
@@ -125,6 +200,7 @@ def guiButton(master, text='Ok',  command=None,  fontName="Georgia",  fontSize=1
     )
     #icon='check' # (FontAwesome names without the `fa-` prefix)
     #return(ctk.CTkButton(master=master, command=command, font=(fontName, fontSize), text=text)
+    return True
 
 
 def   guiCheckBox(self,disabled=False, text='', fontName="Georgia", command=None, fontSize=12, variable=None, 
@@ -136,6 +212,7 @@ def   guiCheckBox(self,disabled=False, text='', fontName="Georgia", command=None
         disabled=disabled,
         indent=False
     ))
+    return True
 
 
 def guiConfigureWdg(self, widget=None,  state=None,  disabled=None,  command=None,  text=None,  text_color=None, fg_color=None,  bg_color=None):
@@ -165,6 +242,7 @@ def guiConfigureWdg(self, widget=None,  state=None,  disabled=None,  command=Non
         widget.configure(bg_color=bg_color)
     '''
     widget
+    return True
 
 
 
@@ -176,6 +254,7 @@ def guiDataEntry(canvas,textvariable='', placeholder_text='', width:int=40):
         description='',
         disabled=False   
     ))
+    return True
 
 
                           
@@ -253,28 +332,16 @@ def guiOptionMenu(self, values:[], variable=int(0),  dropdown_fontName="Georgia"
         description='',
         disabled=False,
     ))
+    return True
 
-def guiPlaceWidget(wdgGrid,  widget,  row=0, column=0, columnspan=1, rowspan=1,  width=240,  padx=10,  pady=10,  sticky="ew"):
+def guiPlaceWidget(wdgGrid,  widget,  row=0, column=0, columnspan=1, rowspan=1, widgetID_LUT={},  width=240,  padx=10,  pady=10,  sticky="ew"):
     # widgets that do not support a width layout must set nCols=0
-    '''
-    nCols=0, 
-    width=rowspan*width
-    if(width is None):
-        if(nCols>0):
-            iRelWdth=int(100*(columnspan*1.0/nCols))  # width in percent
-            sWdth=f'{iRelWdth}%%'
-            myLayout = {"width":sWdth}
-            widget.layout = myLayout
-    else:
-        sWdth=f'{width}px'            
-        myLayout = {"width":sWdth}
-        widget.layout = myLayout
-    '''
     iHght=30*rowspan
     sHght=f"{iHght}px"
+    # It proved impossible to me to use our widget.gridID instead of the auto-generated one by the wdgGrid object
+    # If I do change it, then wdgGrid cannot place the widget (or places is somwhere outside the visible screen)
     myLayout = {"width":"auto",  "height":sHght,  "margin":"2px",  "padding":"2px"}
     widget.layout = myLayout
-    # wdgGrid[1stRow:LstRow , 1stCol:LstCol] = widget  # with its layout setup beforehand
     rghtCol=column + columnspan
     btmRow=row+rowspan
     if(rowspan==6):
@@ -287,6 +354,21 @@ def guiPlaceWidget(wdgGrid,  widget,  row=0, column=0, columnspan=1, rowspan=1, 
         wdgGrid[row:btmRow, column] = widget
     else:
         wdgGrid[row:btmRow, column:rghtCol] = widget
+    try:  
+        # Let's create a lookup table to convert wdgGrid3.grid_area gridIdx (a string like 'widget001', 'widget488',..) info into our self.widgetGridID
+        # Only the dynamically created widgets do have a gridID assigned - if it exists, then we use our ID
+        # else it gets too complicated because the number of widgets per row varies (country checkbox present or not)
+        # hence we don't want to use the autogenerated grid_area value. And we do need the gridID for the
+        # checkbox event handler later on. Hence we create a LUT for later use.
+            # wdgGrid[row, column].widgetGridID=widget.widgetGridID # we can do this, but it is to no use. A checkbox change event does not forward this info
+        myGridID=widget.widgetGridID
+        wdgGridTxtID=wdgGrid[row, column].layout.grid_area
+        # print(f'PlaceWdg Adding wdgGrid[row={row}, column={column}].txtID={wdgGridTxtID} ; widgetGridID={myGridID} to self.widgetID_LUT')
+        if (wdgGridTxtID not in widgetID_LUT):
+            widgetID_LUT[wdgGridTxtID]=myGridID
+    except:
+        pass
+    return True
 
 
 def guiRadioButton(options=[] , description='',  text='', preselected=None):
@@ -301,11 +383,13 @@ def guiRadioButton(options=[] , description='',  text='', preselected=None):
         description=description,
         disabled=False
     ))
+    return True
 
 
 def guiSetCheckBox(myWidget, bSelected=False):
-        myWidget.value=bSelected
-        myWidget
+    myWidget.value=bSelected
+    myWidget
+    return True
 
 
 def guiTextBox(frame, text='',  description='', width='18%',  height='20%',  fontName="Georgia",  fontSize=12, text_color="black"):
@@ -332,7 +416,7 @@ def guiTxtLabel(self, text,  anchor=None, fontName="Georgia",  fontSize=12,  des
         sWdth=f'{iRelWdth}%%'
     else:
         sWdth=f'{width}px'            
-    layout = widgets.Layout(width=sWdth)
+    layout = wdg.Layout(width=sWdth)
     
     return(wdg.Text(
     value=text,
@@ -351,6 +435,7 @@ def guiSetWidgetWidth(widget,  width=200):
         sWdth=f'{width}px'            
     myLayout = {"width":sWdth}
     widget.layout = myLayout
+    return True
     
     
 def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='',  
@@ -366,7 +451,7 @@ def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='
     global button_clicked
     button_clicked = False
     global whichButton
-    whichButton=1 # which on was clicked?
+    whichButton=1 # which one was clicked?
     
     # Create a function to continue the execution
     def on_click(b):
@@ -381,6 +466,7 @@ def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='
         global button_clicked
         button_clicked = True
         on_cancel
+        #return True
     
     watchedWidget.on_click(on_click)
     if(watchedWidget2 is None):
@@ -404,8 +490,10 @@ def guiWidgetsThatWait4UserInput(watchedWidget=None,watchedWidget2=None, title='
 def guiWipeTextBox(txtBoxWidget, protect=True):
     txtBoxWidget.value = ""
     txtBoxWidget
+    return True
     
 def guiWriteIntoTextBox(txtBoxWidget, txt='', protect=True):    
     txtBoxWidget.value = txt
     txtBoxWidget
+    return True
     
